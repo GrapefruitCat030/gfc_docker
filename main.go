@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"syscall"
 
+	gfc_cgroup "github.com/GrapefruitCat030/gfc_docker/pkg/cgroup"
 	gfc_fs "github.com/GrapefruitCat030/gfc_docker/pkg/fs"
 	gfc_uts "github.com/GrapefruitCat030/gfc_docker/pkg/uts"
 
@@ -85,6 +86,8 @@ func main() {
 
 	// run netsetgo using default args
 	// gfc_net.SetNetwork(cmd.Process.Pid)
+	gfc_cgroup.TestMemoryLimit(cmd.Process.Pid)
+	defer gfc_cgroup.FreeMemoryLimit()
 
 	if err := cmd.Wait(); err != nil {
 		fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
