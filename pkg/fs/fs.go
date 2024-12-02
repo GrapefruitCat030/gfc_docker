@@ -25,17 +25,11 @@ func MountProc(newroot string) error {
 	source := "proc"
 	target := filepath.Join(newroot, "/proc")
 	fstype := "proc"
-	flags := 0
-	data := ""
+	// flags := 0
+	flags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
 
 	os.MkdirAll(target, 0755)
-	if err := syscall.Mount(
-		source,
-		target,
-		fstype,
-		uintptr(flags),
-		data,
-	); err != nil {
+	if err := syscall.Mount(source, target, fstype, uintptr(flags), ""); err != nil {
 		return err
 	}
 
