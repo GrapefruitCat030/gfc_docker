@@ -21,7 +21,7 @@ func child() {
 	log.Println("child start")
 }
 
-func main() {
+func reexec_main() {
 	//打印开始
 	log.Printf("main start, os.Args = %+v\n", os.Args)
 	//执行子函数

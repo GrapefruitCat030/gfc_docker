@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func mymain() {
+func socket_main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
