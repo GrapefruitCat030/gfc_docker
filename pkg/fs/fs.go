@@ -9,15 +9,15 @@ import (
 )
 
 // CheckRootFS is a function that will check if the rootFS path exists
-func CheckRootFS(rootFSPath string) {
+func CheckRootFS(rootFSPath string) error {
 	if _, err := os.Stat(rootFSPath); err != nil {
 		if os.IsNotExist(err) {
-			fmt.Printf("RootFS %+v path does not exist\n", rootFSPath)
-			os.Exit(1)
+			return fmt.Errorf("RootFS %+v path does not exist", rootFSPath)
 		} else {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
 // MountProc is a function that will mount the proc filesystem to the newroot
@@ -59,11 +59,11 @@ func PivotRoot(newRoot string) error {
 	fmt.Printf("newRoot: %+v\n", newRoot)
 	if err := syscall.PivotRoot(newRoot, putOld); err != nil {
 		log.Fatal("Error pivoting root: ", err)
-		// unmount
-		if err := syscall.Unmount(newRoot, syscall.MNT_DETACH); err != nil {
-			log.Fatal("Error unmounting newRoot: ", err)
-			return err
-		}
+		// // unmount
+		// if err := syscall.Unmount(newRoot, syscall.MNT_DETACH); err != nil {
+		// 	log.Fatal("Error unmounting newRoot: ", err)
+		// 	return err
+		// }
 		return err
 	}
 
@@ -74,16 +74,16 @@ func PivotRoot(newRoot string) error {
 	}
 
 	// unmount putOld, as it's no longer needed, and remove the directory
-	putOld = preRoot
-	if err := syscall.Unmount(putOld, syscall.MNT_DETACH); err != nil {
-		log.Fatal("Error unmounting putOld: ", err)
-		return err
-	}
-	testPath := "/kksk" // TODO: use putOld
-	if err := os.RemoveAll(testPath); err != nil {
-		log.Fatal("Error removing testPath: ", err)
-		return err
-	}
+	// putOld = preRoot
+	// if err := syscall.Unmount(putOld, syscall.MNT_DETACH); err != nil {
+	// 	log.Fatal("Error unmounting putOld: ", err)
+	// 	return err
+	// }
+	// testPath := "/kksk" // TODO: use putOld
+	// if err := os.RemoveAll(testPath); err != nil {
+	// 	log.Fatal("Error removing testPath: ", err)
+	// 	return err
+	// }
 
 	return nil
 }

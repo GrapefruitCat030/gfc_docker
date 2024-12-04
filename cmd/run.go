@@ -121,8 +121,12 @@ func runDetails() {
 	cmdArr := readUserCmd()
 
 	// ---- setup new root filesystem ----
-	// newRoot := os.Args[1] // os.Args[1] == paramRootFs
-	// fmt.Println("Forking run process, newRoot:", newRoot)
+	newRoot := os.Args[1] // os.Args[1] == paramRootFs
+	if err := gfc_fs.CheckRootFS(newRoot); err != nil {
+		fmt.Printf("Error checking rootFS - %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Forking run process, newRoot:", newRoot)
 	// if err := gfc_fs.PivotRoot(newRoot); err != nil {
 	// 	fmt.Printf("PivotRoot Error: %+v\n", err)
 	// 	os.Exit(1)
