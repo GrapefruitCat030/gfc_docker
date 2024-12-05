@@ -88,6 +88,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 	}
 
 	// ---- fork self process ----
+	// for success running in Alpine(root),comment out the NEWUSER flag and mappings
 	parentProc := reexec.Command("run-boot") // command: /proc/self/exe run-boot [...]
 	parentProc.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
@@ -129,6 +130,12 @@ func runDetails() {
 		os.Exit(1)
 	}
 	fmt.Println("Current location: ", pwd)
+
+	// ---- mount independent ----
+	if err := gfc_fs.MountIndepent(); err != nil {
+		fmt.Printf("Error mounting independent - %s\n", err)
+		os.Exit(1)
+	}
 
 	if err := gfc_fs.PivotRoot(pwd); err != nil {
 		fmt.Printf("PivotRoot Error: %+v\n", err)
