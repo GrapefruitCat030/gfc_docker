@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -19,7 +20,7 @@ import (
 )
 
 func init() {
-	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "", "root filesystem path")
+	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "filesystem/busyboxfs", "root filesystem path")
 	runCmd.Flags().StringVarP(&runConf.MemLimit, "memory", "m", "20m", "memory limit")
 	runCmd.Flags().BoolVarP(&runConf.Tty, "tty", "t", false, "tty")
 	rootCmd.AddCommand(runCmd)
@@ -87,7 +88,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 	}
 
 	// ---- fork self process ----
-	parentProc := reexec.Command("run-boot", runConf.RootFs) // command: /proc/self/exe run-boot [...]
+	parentProc := reexec.Command("run-boot") // command: /proc/self/exe run-boot [...]
 	parentProc.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWIPC |
@@ -107,6 +108,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 		}},
 	}
 	parentProc.ExtraFiles = []*os.File{pr}
+	parentProc.Dir = filepath.Join(os.Getenv("PWD"), runConf.RootFs)
 	if runConf.Tty {
 		parentProc.Stdin = os.Stdin
 		parentProc.Stdout = os.Stdout
@@ -121,20 +123,27 @@ func runDetails() {
 	cmdArr := readUserCmd()
 
 	// ---- setup new root filesystem ----
-	newRoot := os.Args[1] // os.Args[1] == paramRootFs
-	if err := gfc_fs.CheckRootFS(newRoot); err != nil {
-		fmt.Printf("Error checking rootFS - %s\n", err)
+	pwd, err := os.Getwd()
+	if err != nil {
+		fmt.Printf("Error getting current working directory - %s\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Forking run process, newRoot:", newRoot)
-	// if err := gfc_fs.PivotRoot(newRoot); err != nil {
-	// 	fmt.Printf("PivotRoot Error: %+v\n", err)
-	// 	os.Exit(1)
-	// }
+	fmt.Println("Current location: ", pwd)
+
+	if err := gfc_fs.PivotRoot(pwd); err != nil {
+		fmt.Printf("PivotRoot Error: %+v\n", err)
+		os.Exit(1)
+	}
 
 	// ---- mount proc ----
-	if err := gfc_fs.MountProc(""); err != nil {
+	if err := gfc_fs.MountProc(); err != nil {
 		fmt.Printf("Error mounting /proc - %s\n", err)
+		os.Exit(1)
+	}
+
+	// ---- mount tmpfs ----
+	if err := gfc_fs.MountTmpfs(); err != nil {
+		fmt.Printf("Error mounting /tmp - %s\n", err)
 		os.Exit(1)
 	}
 

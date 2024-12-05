@@ -21,27 +21,27 @@ func CheckRootFS(rootFSPath string) error {
 }
 
 // MountProc is a function that will mount the proc filesystem to the newroot
-func MountProc(newroot string) error {
-	source := "proc"
-	target := filepath.Join(newroot, "/proc")
-	fstype := "proc"
-	// flags := 0
-	flags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-
-	os.MkdirAll(target, 0755)
-	if err := syscall.Mount(source, target, fstype, uintptr(flags), ""); err != nil {
+func MountProc() error {
+	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
+	if err := syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), ""); err != nil {
+		log.Fatal("Error mounting /proc: ", err)
 		return err
 	}
+	return nil
+}
 
+func MountTmpfs() error {
+	defaultMountFlags := syscall.MS_NOSUID | syscall.MS_STRICTATIME
+	defaultMountMode := "mode=755"
+	if err := syscall.Mount("tmpfs", "/tmp", "tmpfs", uintptr(defaultMountFlags), defaultMountMode); err != nil {
+		log.Fatal("Error mounting /tmp: ", err)
+		return err
+	}
 	return nil
 }
 
 // PivotRoot is a function that will pivot the root filesystem to the newRoot
 func PivotRoot(newRoot string) error {
-	// newRoot => filesystem/alpine-fs
-	// putOld => filesystem/alpine-fs/.pivot_root
-	preRoot := "/.pivot_root"
-	putOld := filepath.Join(newRoot, preRoot)
 
 	// newroot and putold must not be on the same filesystem as the current root /
 	// so we need to bind mount the new root to a new directory and pivot_root to it
@@ -50,20 +50,15 @@ func PivotRoot(newRoot string) error {
 		return err
 	}
 
-	// Create putOld and pivot_root
-	if err := os.MkdirAll(putOld, 0700); err != nil {
+	pivotDir := filepath.Join(newRoot, ".pivot_root")
+	if err := os.MkdirAll(pivotDir, 0777); err != nil {
 		log.Fatal("Error creating putOld: ", err)
 		return err
 	}
-	fmt.Printf("putOld: %+v\n", putOld)
+	fmt.Printf("putOld: %+v\n", pivotDir)
 	fmt.Printf("newRoot: %+v\n", newRoot)
-	if err := syscall.PivotRoot(newRoot, putOld); err != nil {
+	if err := syscall.PivotRoot(newRoot, pivotDir); err != nil {
 		log.Fatal("Error pivoting root: ", err)
-		// // unmount
-		// if err := syscall.Unmount(newRoot, syscall.MNT_DETACH); err != nil {
-		// 	log.Fatal("Error unmounting newRoot: ", err)
-		// 	return err
-		// }
 		return err
 	}
 
@@ -74,16 +69,15 @@ func PivotRoot(newRoot string) error {
 	}
 
 	// unmount putOld, as it's no longer needed, and remove the directory
-	// putOld = preRoot
-	// if err := syscall.Unmount(putOld, syscall.MNT_DETACH); err != nil {
-	// 	log.Fatal("Error unmounting putOld: ", err)
-	// 	return err
-	// }
-	// testPath := "/kksk" // TODO: use putOld
-	// if err := os.RemoveAll(testPath); err != nil {
-	// 	log.Fatal("Error removing testPath: ", err)
-	// 	return err
-	// }
+	pivotDir = filepath.Join("/", ".pivot_root")
+	if err := syscall.Unmount(pivotDir, syscall.MNT_DETACH); err != nil {
+		log.Fatal("Error unmounting putOld: ", err)
+		return err
+	}
+	if err := os.RemoveAll(pivotDir); err != nil {
+		log.Fatal("Error removing testPath: ", err)
+		return err
+	}
 
 	return nil
 }
