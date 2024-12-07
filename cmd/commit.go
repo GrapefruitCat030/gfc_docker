@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	rootCmd.Flags().StringVarP(&commitConf.containerRootPath, "dir", "d", "/root/project/gfc_docker/filesystem/merged", "container root path")
+	commitCmd.Flags().StringVarP(&commitConf.containerRootPath, "dir", "d", "/root/project/gfc_docker/filesystem/merged", "container root path")
 	rootCmd.AddCommand(commitCmd)
 }
 

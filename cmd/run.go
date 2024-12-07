@@ -12,6 +12,7 @@ import (
 	gfc_cgroup "github.com/GrapefruitCat030/gfc_docker/pkg/cgroup"
 	gfc_fs "github.com/GrapefruitCat030/gfc_docker/pkg/fs"
 	gfc_pipe "github.com/GrapefruitCat030/gfc_docker/pkg/pipe"
+	gfc_runinfo "github.com/GrapefruitCat030/gfc_docker/pkg/runinfo"
 	gfc_subsys "github.com/GrapefruitCat030/gfc_docker/pkg/subsystem"
 	gfc_ufs "github.com/GrapefruitCat030/gfc_docker/pkg/ufs"
 	gfc_uts "github.com/GrapefruitCat030/gfc_docker/pkg/uts"
@@ -21,19 +22,23 @@ import (
 )
 
 func init() {
+	runCmd.Flags().StringVarP(&runConf.ContainerName, "name", "n", "", "container name")
 	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "/root/project/gfc_docker/filesystem", "root filesystem path")
 	runCmd.Flags().StringVarP(&runConf.MemLimit, "memory", "m", "20m", "memory limit")
 	runCmd.Flags().BoolVarP(&runConf.Tty, "tty", "t", false, "tty")
+	runCmd.Flags().BoolVarP(&runConf.Detach, "detach", "d", false, "detach")
 	runCmd.Flags().StringVarP(&runConf.Volume, "volume", "v", "", "mount volume, format: <host_path>:<container_path>")
 	rootCmd.AddCommand(runCmd)
 }
 
 type RunConfig struct {
-	RootFs   string
-	MemLimit string
-	Tty      bool
-	UFSer    gfc_ufs.UnionFSer
-	Volume   string
+	ContainerName string
+	RootFs        string
+	MemLimit      string
+	Tty           bool
+	Detach        bool
+	UFSer         gfc_ufs.UnionFSer
+	Volume        string
 }
 
 var runConf RunConfig
@@ -45,6 +50,10 @@ var runCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running command: ", args, " with config: ", runConf, " , default union filesystem: overlayfs")
 		runConf.UFSer = &gfc_ufs.OverlayFS{}
+		if runConf.Tty && runConf.Detach {
+			fmt.Println("Error: cannot specify both -t and -d")
+			os.Exit(1)
+		}
 		run(args)
 	},
 }
@@ -56,6 +65,13 @@ func run(args []string) {
 	if err := parentProc.Start(); err != nil { // reexec init map => func runDetails()
 		panic(err)
 	}
+
+	// ---- record container info ----
+	containerName, err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerName, args)
+	if err != nil {
+		fmt.Printf("Error recording container info - %s\n", err)
+	}
+	fmt.Println("Container name: ", containerName)
 
 	// ---- run netsetgo using default setting ----
 	// gfc_net.SetNetwork(cmd.Process.Pid)
@@ -76,13 +92,19 @@ func run(args []string) {
 	}
 	pw.Close()
 
-	if err := parentProc.Wait(); err != nil {
-		fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
-		os.Exit(1)
-	}
-	if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
-		fmt.Printf("Error deleting union filesystem - %s\n", err)
-		os.Exit(1)
+	if runConf.Tty {
+		if err := parentProc.Wait(); err != nil {
+			fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
+			os.Exit(1)
+		}
+		if err := gfc_runinfo.DeleteContainerInfo(containerName); err != nil {
+			fmt.Printf("Error deleting container info - %s\n", err)
+			os.Exit(1)
+		}
+		if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
+			fmt.Printf("Error deleting union filesystem - %s\n", err)
+			os.Exit(1)
+		}
 	}
 }
 
