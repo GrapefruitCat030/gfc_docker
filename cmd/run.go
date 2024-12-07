@@ -61,6 +61,7 @@ func run(args []string) {
 	// gfc_net.SetNetwork(cmd.Process.Pid)
 
 	// ---- set cgroup & subsys ----
+	// ATTENTION: alpine does not support cgroup v2, need to comment out the following code
 	cgroupManager := gfc_cgroup.NewCgroupManager("gfc_docker")
 	defer cgroupManager.Remove()
 	cgroupManager.Resource = &gfc_subsys.ResourceConfig{MemLimit: runConf.MemLimit}
