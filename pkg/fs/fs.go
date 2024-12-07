@@ -7,47 +7,16 @@ import (
 	"syscall"
 )
 
-// CheckRootFS is a function that will check if the rootFS path exists
-func CheckRootFS(rootFSPath string) error {
+// CheckPathExist is a function that will check if the path exists
+func CheckPathExist(rootFSPath string) (bool, error) {
 	if _, err := os.Stat(rootFSPath); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("RootFS %+v path does not exist", rootFSPath)
+			return false, nil
 		} else {
-			return err
+			return false, err
 		}
 	}
-	return nil
-}
-
-// MountIndepent is a function that will mount the new mount namespace as independent
-func MountIndepent() error {
-	// systemd 加入linux之后, mount namespace 就变成 shared by default, 所以必须显式
-	// 声明你要这个新的 mount namespace独立。
-	// url: https://man7.org/linux/man-pages/man7/mount_namespaces.7.html#NOTES
-	// systemd(1) automatically remounts all mounts as MS_SHARED on system startup. Thus, on most modern systems, the default propagation type is in practice MS_SHARED.
-	if err := syscall.Mount("", "/", "", syscall.MS_PRIVATE|syscall.MS_REC, ""); err != nil {
-		return err
-	}
-	return nil
-}
-
-// MountProc is a function that will mount the proc filesystem to the newroot
-func MountProc() error {
-	defaultMountFlags := syscall.MS_NOEXEC | syscall.MS_NOSUID | syscall.MS_NODEV
-	if err := syscall.Mount("proc", "/proc", "proc", uintptr(defaultMountFlags), ""); err != nil {
-		return err
-	}
-	return nil
-}
-
-// MountTmpfs is a function that will mount a tmpfs filesystem to the newroot
-func MountTmpfs() error {
-	defaultMountFlags := syscall.MS_NOSUID | syscall.MS_STRICTATIME
-	defaultMountMode := "mode=755"
-	if err := syscall.Mount("tmpfs", "/tmp", "tmpfs", uintptr(defaultMountFlags), defaultMountMode); err != nil {
-		return err
-	}
-	return nil
+	return true, nil
 }
 
 // PivotRoot is a function that will pivot the root filesystem to the newRoot

@@ -13,6 +13,7 @@ import (
 	gfc_fs "github.com/GrapefruitCat030/gfc_docker/pkg/fs"
 	gfc_pipe "github.com/GrapefruitCat030/gfc_docker/pkg/pipe"
 	gfc_subsys "github.com/GrapefruitCat030/gfc_docker/pkg/subsystem"
+	gfc_ufs "github.com/GrapefruitCat030/gfc_docker/pkg/ufs"
 	gfc_uts "github.com/GrapefruitCat030/gfc_docker/pkg/uts"
 
 	"github.com/docker/docker/pkg/reexec"
@@ -20,7 +21,7 @@ import (
 )
 
 func init() {
-	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "filesystem/busyboxfs", "root filesystem path")
+	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "/root/project/gfc_docker/filesystem", "root filesystem path")
 	runCmd.Flags().StringVarP(&runConf.MemLimit, "memory", "m", "20m", "memory limit")
 	runCmd.Flags().BoolVarP(&runConf.Tty, "tty", "t", false, "tty")
 	rootCmd.AddCommand(runCmd)
@@ -30,6 +31,7 @@ type RunConfig struct {
 	RootFs   string
 	MemLimit string
 	Tty      bool
+	UFSer    gfc_ufs.UnionFSer
 }
 
 var runConf RunConfig
@@ -37,12 +39,11 @@ var runConf RunConfig
 var runCmd = &cobra.Command{
 	Use:   "run [command]",
 	Short: "Run a new container",
-	// 	Long: `Run a new container with the specified root filesystem.
-	// [rootfs] is a required argument that specifies the path to the root filesystem.`,
-	Args: cobra.MinimumNArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running command: ", args, " with config: ", runConf)
-		fmt.Println("Running command len", len(args))
+		fmt.Println("default union filesystem: overlayfs")
+		runConf.UFSer = &gfc_ufs.OverlayFS{}
 		run(args)
 	},
 }
@@ -50,8 +51,8 @@ var runCmd = &cobra.Command{
 func run(args []string) {
 
 	// ---- fork self process ----
-	parentProc, pw := runNewProcess() // new fork proc/self/exe  => reexec init map => func runDetails()
-	if err := parentProc.Start(); err != nil {
+	parentProc, pw := runNewProcess()          // new fork proc/self/exe  => reexec init map
+	if err := parentProc.Start(); err != nil { // reexec init map => func runDetails()
 		panic(err)
 	}
 
@@ -77,18 +78,15 @@ func run(args []string) {
 		fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
 		os.Exit(1)
 	}
+	if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.UFSer); err != nil {
+		fmt.Printf("Error deleting union filesystem - %s\n", err)
+		os.Exit(1)
+	}
 }
 
 func runNewProcess() (*exec.Cmd, *os.File) {
-	// ---- create pipe ----
-	pr, pw, err := gfc_pipe.NewPipe()
-	if err != nil {
-		fmt.Printf("Error creating pipe - %s\n", err)
-		os.Exit(1)
-	}
-
 	// ---- fork self process ----
-	// for success running in Alpine(root),comment out the NEWUSER flag and mappings
+	// ATTENTION: for success running in Alpine(root),comment out the NEWUSER flag and mappings
 	parentProc := reexec.Command("run-boot") // command: /proc/self/exe run-boot [...]
 	parentProc.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
@@ -108,8 +106,20 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 			Size:        1,
 		}},
 	}
+	// ---- set pipe for child process ----
+	pr, pw, err := gfc_pipe.NewPipe()
+	if err != nil {
+		fmt.Printf("Error creating pipe - %s\n", err)
+		os.Exit(1)
+	}
 	parentProc.ExtraFiles = []*os.File{pr}
-	parentProc.Dir = filepath.Join(os.Getenv("PWD"), runConf.RootFs)
+	// ---- set union filesystem ----
+	if err := gfc_ufs.NewWorkSpace(runConf.RootFs, runConf.UFSer); err != nil {
+		fmt.Printf("Error setting up union filesystem - %s\n", err)
+		os.Exit(1)
+	}
+	parentProc.Dir = filepath.Join(runConf.RootFs, runConf.UFSer.WorkSpace())
+	// ---- set tty ----
 	if runConf.Tty {
 		parentProc.Stdin = os.Stdin
 		parentProc.Stdout = os.Stdout
@@ -119,57 +129,62 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 }
 
 func runDetails() {
-
-	// ---- read user command from pipe ----
+	// 1. read user command from pipe
 	cmdArr := readUserCmd()
+	// 2. setup new root filesystem
+	setNewRootfs()
+	// 3. setup new hostname
+	if err := gfc_uts.AssignHostName(); err != nil {
+		fmt.Printf("Error assigning hostname - %s\n", err)
+		os.Exit(1)
+	}
+	// if err := gfc_net.WaitNetwork(); err != nil {
+	// 	fmt.Printf("Error waiting for network - %s\n", err)
+	// 	os.Exit(1)
+	// }
 
-	// ---- setup new root filesystem ----
+	// 4. execute command
+	execCommand(cmdArr)
+}
+
+// ---- helper functions ----
+
+func readUserCmd() []string {
+	pr := os.NewFile(3, "pipe")
+	defer pr.Close()
+
+	msg, err := io.ReadAll(pr)
+	if err != nil {
+		fmt.Printf("Error reading from pipe - %s\n", err)
+		os.Exit(1)
+	}
+	return strings.Fields(string(msg))
+}
+
+func setNewRootfs() {
 	pwd, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("Error getting current working directory - %s\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("Current location: ", pwd)
-
-	// ---- mount independent ----
-	if err := gfc_fs.MountIndepent(); err != nil {
+	if err := gfc_fs.SetMountPrivate(); err != nil {
 		fmt.Printf("Error mounting independent - %s\n", err)
 		os.Exit(1)
 	}
-
 	if err := gfc_fs.PivotRoot(pwd); err != nil {
 		fmt.Printf("PivotRoot Error: %+v\n", err)
 		os.Exit(1)
 	}
-
-	// ---- mount proc ----
 	if err := gfc_fs.MountProc(); err != nil {
 		fmt.Printf("Error mounting /proc - %s\n", err)
 		os.Exit(1)
 	}
-
-	// ---- mount tmpfs ----
 	if err := gfc_fs.MountTmpfs(); err != nil {
 		fmt.Printf("Error mounting /tmp - %s\n", err)
 		os.Exit(1)
 	}
-
-	// ---- setup new hostname ----
-	if err := gfc_uts.AssignHostName(); err != nil {
-		fmt.Printf("Error assigning hostname - %s\n", err)
-		os.Exit(1)
-	}
-
-	// if err := gfc_net.WaitNetwork(); err != nil {
-	// 	fmt.Printf("Error waiting for network - %s\n", err)
-	// 	os.Exit(1)
-	// }
-
-	// ---- execute command ----
-	execCommand(cmdArr)
 }
-
-// ---- helper functions ----
 
 func execCommand(command []string) {
 	if len(command) == 0 {
@@ -186,16 +201,4 @@ func execCommand(command []string) {
 		fmt.Printf("Error executing shell - %s\n", err)
 		os.Exit(1)
 	}
-}
-
-func readUserCmd() []string {
-	pr := os.NewFile(3, "pipe")
-	defer pr.Close()
-
-	msg, err := io.ReadAll(pr)
-	if err != nil {
-		fmt.Printf("Error reading from pipe - %s\n", err)
-		os.Exit(1)
-	}
-	return strings.Fields(string(msg))
 }
