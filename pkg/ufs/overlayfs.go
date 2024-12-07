@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	gfc_fs "github.com/GrapefruitCat030/gfc_docker/pkg/fs"
@@ -80,6 +81,41 @@ func (ofs *OverlayFS) DeleteWriteLayer(rootPath string) error {
 		return err
 	}
 	if err := os.RemoveAll(workDir); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ofs *OverlayFS) MountVolume(rootPath, volumeMapPath string) error {
+	p := strings.Split(volumeMapPath, ":")
+	if len(p) != 2 {
+		return fmt.Errorf("volume map path %s invalid", volumeMapPath)
+	}
+	hostPath := p[0]
+	containerPath := p[1]
+
+	if ok, err := gfc_fs.CheckPathExist(hostPath); err != nil {
+		return err
+	} else if !ok {
+		return fmt.Errorf("path %s not exist", hostPath)
+	}
+
+	if err := os.MkdirAll(filepath.Join(rootPath, overlayMountDir, containerPath), 0777); err != nil {
+		return err
+	}
+	if err := syscall.Mount(hostPath, filepath.Join(rootPath, overlayMountDir, containerPath), "", syscall.MS_BIND, ""); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ofs *OverlayFS) UMountVolume(rootPath, volumeMapPath string) error {
+	p := strings.Split(volumeMapPath, ":")
+	if len(p) != 2 {
+		return fmt.Errorf("volume map path %s invalid", volumeMapPath)
+	}
+	containerPath := p[1]
+	if err := syscall.Unmount(filepath.Join(rootPath, overlayMountDir, containerPath), syscall.MNT_DETACH); err != nil {
 		return err
 	}
 	return nil

@@ -24,6 +24,7 @@ func init() {
 	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "/root/project/gfc_docker/filesystem", "root filesystem path")
 	runCmd.Flags().StringVarP(&runConf.MemLimit, "memory", "m", "20m", "memory limit")
 	runCmd.Flags().BoolVarP(&runConf.Tty, "tty", "t", false, "tty")
+	runCmd.Flags().StringVarP(&runConf.Volume, "volume", "v", "", "mount volume, format: <host_path>:<container_path>")
 	rootCmd.AddCommand(runCmd)
 }
 
@@ -32,6 +33,7 @@ type RunConfig struct {
 	MemLimit string
 	Tty      bool
 	UFSer    gfc_ufs.UnionFSer
+	Volume   string
 }
 
 var runConf RunConfig
@@ -41,8 +43,7 @@ var runCmd = &cobra.Command{
 	Short: "Run a new container",
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Running command: ", args, " with config: ", runConf)
-		fmt.Println("default union filesystem: overlayfs")
+		fmt.Println("Running command: ", args, " with config: ", runConf, " , default union filesystem: overlayfs")
 		runConf.UFSer = &gfc_ufs.OverlayFS{}
 		run(args)
 	},
@@ -78,7 +79,7 @@ func run(args []string) {
 		fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
 		os.Exit(1)
 	}
-	if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.UFSer); err != nil {
+	if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
 		fmt.Printf("Error deleting union filesystem - %s\n", err)
 		os.Exit(1)
 	}
@@ -114,7 +115,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 	}
 	parentProc.ExtraFiles = []*os.File{pr}
 	// ---- set union filesystem ----
-	if err := gfc_ufs.NewWorkSpace(runConf.RootFs, runConf.UFSer); err != nil {
+	if err := gfc_ufs.NewWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
 		fmt.Printf("Error setting up union filesystem - %s\n", err)
 		os.Exit(1)
 	}
