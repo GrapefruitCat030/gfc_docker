@@ -156,7 +156,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 		parentProc.Stdout = os.Stdout
 		parentProc.Stderr = os.Stderr
 	} else {
-		logPath := "/var/run/gfc_docker/" + runConf.ContainerName + "/container.log"
+		logPath := "/var/log/gfc_docker/" + runConf.ContainerName + "/container.log"
 		logDir := filepath.Dir(logPath)
 		if err := os.MkdirAll(logDir, 0777); err != nil {
 			fmt.Printf("Error creating log directory - %s\n", err)

@@ -44,7 +44,7 @@ func ps() {
 		return nil
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error: cannot walk through the container info directory: ", gfc_runinfo.DefaultInfoLocation, " , error: ", err)
 		os.Exit(1)
 	}
 
@@ -60,7 +60,7 @@ func ps() {
 			containerInfo.Status)
 	}
 	if err := w.Flush(); err != nil {
-		fmt.Println(err)
+		fmt.Println("Error: cannot flush the tabwriter: ", err)
 		os.Exit(1)
 	}
 }
