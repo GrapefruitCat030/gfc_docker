@@ -24,7 +24,7 @@ func (ofs *OverlayFS) WorkSpace() string {
 }
 
 func (ofs *OverlayFS) CreateReadOnlyLayer(rootPath string) error {
-	path := filepath.Join(rootPath, overlayReadOnlyDir)
+	path := filepath.Join(filepath.Dir(rootPath), overlayReadOnlyDir)
 	ok, err := gfc_fs.CheckPathExist(path)
 	if err != nil {
 		return err
@@ -55,7 +55,7 @@ func (ofs *OverlayFS) MountUFS(rootPath string) error {
 		return err
 	}
 	opts := fmt.Sprintf("lowerdir=%s,upperdir=%s,workdir=%s",
-		filepath.Join(rootPath, overlayReadOnlyDir),
+		filepath.Join(filepath.Dir(rootPath), overlayReadOnlyDir),
 		filepath.Join(rootPath, overlayWriteDir),
 		filepath.Join(rootPath, overlayWorkDir),
 	)
@@ -83,6 +83,9 @@ func (ofs *OverlayFS) DeleteWriteLayer(rootPath string) error {
 		return err
 	}
 	if err := os.RemoveAll(workDir); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(rootPath); err != nil {
 		return err
 	}
 	return nil
