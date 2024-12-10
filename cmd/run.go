@@ -29,9 +29,14 @@ func init() {
 	runCmd.Flags().BoolVarP(&runConf.Detach, "detach", "d", false, "detach")
 	runCmd.Flags().StringVarP(&runConf.Volume, "volume", "v", "", "mount volume, format: <host_path>:<container_path>")
 	rootCmd.AddCommand(runCmd)
+
+	runConf.UFSer = &gfc_ufs.OverlayFS{}
+	runConf.ContainerID = gfc_runinfo.GenerateRandomID(10)
+	runConf.RootFs = filepath.Join(runConf.RootFs, runConf.ContainerID)
 }
 
 type RunConfig struct {
+	ContainerID   string
 	ContainerName string
 	RootFs        string
 	MemLimit      string
@@ -49,7 +54,6 @@ var runCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("Running command: ", args, " with config: ", runConf, " , default union filesystem: overlayfs")
-		runConf.UFSer = &gfc_ufs.OverlayFS{}
 		if runConf.Tty && runConf.Detach {
 			fmt.Println("Error: cannot specify both -t and -d")
 			os.Exit(1)
@@ -67,7 +71,7 @@ func run(args []string) {
 	}
 
 	// ---- record container info ----
-	containerName, err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerName, args)
+	containerName, err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerID, runConf.ContainerName, args)
 	if err != nil {
 		fmt.Printf("Error recording container info - %s\n", err)
 	}
@@ -97,7 +101,7 @@ func run(args []string) {
 			fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
 			os.Exit(1)
 		}
-		if err := gfc_runinfo.DeleteContainerInfo(containerName); err != nil {
+		if err := gfc_runinfo.DeleteContainerInfo(containerName); err != nil { // TODO: if detach container over?
 			fmt.Printf("Error deleting container info - %s\n", err)
 			os.Exit(1)
 		}
@@ -138,7 +142,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 	}
 	parentProc.ExtraFiles = []*os.File{pr}
 	// ---- set union filesystem ----
-	if err := gfc_ufs.NewWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
+	if err := gfc_ufs.NewWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil { //TODO: each container has its own workspace
 		fmt.Printf("Error setting up union filesystem - %s\n", err)
 		os.Exit(1)
 	}

@@ -30,7 +30,9 @@ func (ofs *OverlayFS) CreateReadOnlyLayer(rootPath string) error {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("path %s not exist", path)
+		if err := os.MkdirAll(path, 0777); err != nil {
+			return err
+		}
 	}
 	return nil
 }

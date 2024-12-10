@@ -31,10 +31,10 @@ const (
 	ConfigName          = "config.json"
 )
 
-func RecordContainerInfo(pid int, name string, cmdArr []string) (string, error) {
+func RecordContainerInfo(pid int, id, name string, cmdArr []string) (string, error) {
 	containerInfo := &ContainerInfo{
 		Pid:         fmt.Sprintf("%d", pid),
-		Id:          generateRandomID(10),
+		Id:          id,
 		Name:        name,
 		Command:     strings.Join(cmdArr, " "),
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
@@ -54,7 +54,7 @@ func RecordContainerInfo(pid int, name string, cmdArr []string) (string, error) 
 	if err := os.MkdirAll(infoLocation, 0777); err != nil {
 		return "", err
 	}
-	fileName := infoLocation + ConfigName
+	fileName := filepath.Join(infoLocation, ConfigName)
 	f, err := os.Create(fileName)
 	if err != nil {
 		return "", err
@@ -71,7 +71,7 @@ func DeleteContainerInfo(containerName string) error {
 	return os.RemoveAll(infoLocation)
 }
 
-func generateRandomID(idLen int) string {
+func GenerateRandomID(idLen int) string {
 	const letters = "0123456789"
 	b := make([]byte, idLen)
 	for i := range b {
