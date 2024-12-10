@@ -147,11 +147,25 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 		os.Exit(1)
 	}
 	parentProc.Dir = filepath.Join(runConf.RootFs, runConf.UFSer.WorkSpace())
-	// ---- set tty ----
+	// ---- set tty, or redirect to logfile ----
 	if runConf.Tty {
 		parentProc.Stdin = os.Stdin
 		parentProc.Stdout = os.Stdout
 		parentProc.Stderr = os.Stderr
+	} else {
+		logPath := "/var/run/gfc_docker/" + runConf.ContainerID + "/container.log"
+		logDir := filepath.Dir(logPath)
+		if err := os.MkdirAll(logDir, 0777); err != nil {
+			fmt.Printf("Error creating log directory - %s\n", err)
+			os.Exit(1)
+		}
+		f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+		if err != nil {
+			fmt.Printf("Error opening log file - %s\n", err)
+			os.Exit(1)
+		}
+		parentProc.Stdout = f
+		parentProc.Stderr = f
 	}
 	return parentProc, pw
 }
