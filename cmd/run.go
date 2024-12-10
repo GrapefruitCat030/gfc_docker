@@ -32,6 +32,9 @@ func init() {
 
 	runConf.UFSer = &gfc_ufs.OverlayFS{}
 	runConf.ContainerID = gfc_runinfo.GenerateRandomID(10)
+	if runConf.ContainerName == "" {
+		runConf.ContainerName = runConf.ContainerID
+	}
 	runConf.RootFs = filepath.Join(runConf.RootFs, runConf.ContainerID)
 }
 
@@ -71,11 +74,11 @@ func run(args []string) {
 	}
 
 	// ---- record container info ----
-	containerName, err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerID, runConf.ContainerName, args)
+	err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerID, runConf.ContainerName, args)
 	if err != nil {
 		fmt.Printf("Error recording container info - %s\n", err)
 	}
-	fmt.Println("Container name: ", containerName)
+	fmt.Println("Container name: ", runConf.ContainerName)
 
 	// ---- run netsetgo using default setting ----
 	// gfc_net.SetNetwork(cmd.Process.Pid)
@@ -101,7 +104,7 @@ func run(args []string) {
 			fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
 			os.Exit(1)
 		}
-		if err := gfc_runinfo.DeleteContainerInfo(containerName); err != nil { // TODO: if detach container over?
+		if err := gfc_runinfo.DeleteContainerInfo(runConf.ContainerName); err != nil { // TODO: if detach container over?
 			fmt.Printf("Error deleting container info - %s\n", err)
 			os.Exit(1)
 		}
@@ -153,7 +156,7 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 		parentProc.Stdout = os.Stdout
 		parentProc.Stderr = os.Stderr
 	} else {
-		logPath := "/var/run/gfc_docker/" + runConf.ContainerID + "/container.log"
+		logPath := "/var/run/gfc_docker/" + runConf.ContainerName + "/container.log"
 		logDir := filepath.Dir(logPath)
 		if err := os.MkdirAll(logDir, 0777); err != nil {
 			fmt.Printf("Error creating log directory - %s\n", err)

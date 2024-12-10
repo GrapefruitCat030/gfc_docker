@@ -31,7 +31,7 @@ const (
 	ConfigName          = "config.json"
 )
 
-func RecordContainerInfo(pid int, id, name string, cmdArr []string) (string, error) {
+func RecordContainerInfo(pid int, id, name string, cmdArr []string) error {
 	containerInfo := &ContainerInfo{
 		Pid:         fmt.Sprintf("%d", pid),
 		Id:          id,
@@ -40,30 +40,27 @@ func RecordContainerInfo(pid int, id, name string, cmdArr []string) (string, err
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
 		Status:      STATUS_RUNNING,
 	}
-	if name == "" {
-		containerInfo.Name = containerInfo.Id
-	}
 
 	jsonBytes, err := json.Marshal(containerInfo)
 	if err != nil {
-		return "", err
+		return err
 	}
 	jsonStr := string(jsonBytes)
 
 	infoLocation := filepath.Join(DefaultInfoLocation, containerInfo.Name)
 	if err := os.MkdirAll(infoLocation, 0777); err != nil {
-		return "", err
+		return err
 	}
 	fileName := filepath.Join(infoLocation, ConfigName)
 	f, err := os.Create(fileName)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer f.Close()
 	if _, err := f.WriteString(jsonStr); err != nil {
-		return "", err
+		return err
 	}
-	return containerInfo.Name, nil
+	return nil
 }
 
 func DeleteContainerInfo(containerName string) error {
