@@ -15,7 +15,8 @@ var rootCmd = &cobra.Command{
 
 func Init() {
 	fmt.Printf("args=%+v\n", os.Args)
-	reexec.Register("run-boot", runDetails) // trigger by [gfc_docker run ...]
+	reexec.Register("run-boot", runDetails)   // trigger by [gfc_docker run ...]
+	reexec.Register("exec-boot", execDetails) // trigger by [gfc_docker exec ...]
 	if reexec.Init() {
 		os.Exit(0)
 	}
