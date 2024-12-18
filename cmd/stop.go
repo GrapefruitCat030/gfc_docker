@@ -8,7 +8,6 @@ import (
 	"strconv"
 
 	gfc_runinfo "github.com/GrapefruitCat030/gfc_docker/pkg/runinfo"
-	gfc_ufs "github.com/GrapefruitCat030/gfc_docker/pkg/ufs"
 	"github.com/spf13/cobra"
 )
 
@@ -46,15 +45,6 @@ func stop(container_name string) {
 		return
 	}
 	proc.Signal(os.Interrupt)
-
-	if err := gfc_runinfo.DeleteContainerInfo(container_name); err != nil { // TODO: if detach container over?
-		fmt.Printf("Error deleting container info - %s\n", err)
-		os.Exit(1)
-	}
-	if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
-		fmt.Printf("Error deleting union filesystem - %s\n", err)
-		os.Exit(1)
-	}
 
 	cinfo.Status = gfc_runinfo.STATUS_STOPPED
 	cinfo.Pid = ""
