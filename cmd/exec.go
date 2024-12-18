@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	_ "github.com/GrapefruitCat030/gfc_docker/pkg/cgo/nsenter"
@@ -34,7 +32,7 @@ var execCmd = &cobra.Command{
 }
 
 func execute(container_name string, command []string) {
-	pid := getContainerPid(container_name)
+	pid := gfc_runinfo.GetContainerPid(container_name)
 	if pid == "" {
 		fmt.Println("Container not found")
 		return
@@ -57,18 +55,4 @@ func execute(container_name string, command []string) {
 
 func execDetails() {
 	// DO NOTHING, cmd call implement in cgo
-}
-
-func getContainerPid(name string) string {
-	dirPath := filepath.Join(gfc_runinfo.DefaultInfoLocation, name)
-	configPath := filepath.Join(dirPath, gfc_runinfo.ConfigName)
-	bytes, err := os.ReadFile(configPath)
-	if err != nil {
-		return ""
-	}
-	var containerInfo gfc_runinfo.ContainerInfo
-	if err := json.Unmarshal(bytes, &containerInfo); err != nil {
-		return ""
-	}
-	return containerInfo.Pid
 }

@@ -1,12 +1,14 @@
 package nsenter
 
 /*
+#define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 __attribute__((constructor)) void enter_namespace(void) {
     char *mydocker_pid = getenv("MYDOCKER_PID");

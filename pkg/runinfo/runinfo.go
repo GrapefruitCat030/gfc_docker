@@ -18,6 +18,7 @@ type ContainerInfo struct {
 	Command     string `json:"command"`
 	CreatedTime string `json:"created_time"`
 	Status      string `json:"status"`
+	//TODO: rootfs, volume, network, etc.
 }
 
 const (
@@ -79,4 +80,32 @@ func GenerateRandomID(idLen int) string {
 		b[i] = letters[num.Int64()]
 	}
 	return string(b)
+}
+
+func GetContainerInfo(name string) (*ContainerInfo, error) {
+	dirPath := filepath.Join(DefaultInfoLocation, name)
+	configPath := filepath.Join(dirPath, ConfigName)
+	bytes, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	var containerInfo ContainerInfo
+	if err := json.Unmarshal(bytes, &containerInfo); err != nil {
+		return nil, err
+	}
+	return &containerInfo, nil
+}
+
+func GetContainerPid(name string) string {
+	dirPath := filepath.Join(DefaultInfoLocation, name)
+	configPath := filepath.Join(dirPath, ConfigName)
+	bytes, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	var containerInfo ContainerInfo
+	if err := json.Unmarshal(bytes, &containerInfo); err != nil {
+		return ""
+	}
+	return containerInfo.Pid
 }
