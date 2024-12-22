@@ -13,13 +13,6 @@ func init() {
 	rootCmd.AddCommand(commitCmd)
 }
 
-type CommitConfig struct {
-	containerName string
-	imageName     string
-}
-
-var commitConf CommitConfig
-
 var commitCmd = &cobra.Command{
 	Use:   "commit [container-name] [image-name]",
 	Short: "Commit a container into an image",

@@ -28,6 +28,7 @@ func init() {
 	runCmd.Flags().BoolVarP(&runConf.Tty, "tty", "t", false, "tty")
 	runCmd.Flags().BoolVarP(&runConf.Detach, "detach", "d", false, "detach")
 	runCmd.Flags().StringVarP(&runConf.Volume, "volume", "v", "", "mount volume, format: <host_path>:<container_path>")
+	runCmd.Flags().StringArrayVarP(&runConf.Env, "env", "e", []string{}, "environment variables")
 	rootCmd.AddCommand(runCmd)
 
 	runConf.UFSer = &gfc_ufs.OverlayFS{}
@@ -47,6 +48,7 @@ type RunConfig struct {
 	Detach        bool
 	UFSer         gfc_ufs.UnionFSer
 	Volume        string
+	Env           []string
 }
 
 var runConf RunConfig
@@ -144,6 +146,8 @@ func runNewProcess() (*exec.Cmd, *os.File) {
 		os.Exit(1)
 	}
 	parentProc.ExtraFiles = []*os.File{pr}
+	// ---- set environment variables ----
+	parentProc.Env = append(os.Environ(), runConf.Env...)
 	// ---- set union filesystem ----
 	if err := gfc_ufs.NewWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil { //TODO: each container has its own workspace
 		fmt.Printf("Error setting up union filesystem - %s\n", err)
