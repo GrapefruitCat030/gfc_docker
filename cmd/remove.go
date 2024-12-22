@@ -38,7 +38,7 @@ func remove(container_name string) {
 		fmt.Printf("Error deleting container info - %s\n", err)
 		os.Exit(1)
 	}
-	if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
+	if err := gfc_ufs.DeleteWorkSpace(cinfo.RootFs, cinfo.Volume, runConf.UFSer); err != nil {
 		fmt.Printf("Error deleting union filesystem - %s\n", err)
 		os.Exit(1)
 	}

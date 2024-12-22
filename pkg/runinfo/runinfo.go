@@ -15,10 +15,12 @@ type ContainerInfo struct {
 	Pid         string `json:"pid"`
 	Id          string `json:"id"`
 	Name        string `json:"name"`
+	Status      string `json:"status"`
 	Command     string `json:"command"`
 	CreatedTime string `json:"created_time"`
-	Status      string `json:"status"`
-	//TODO: rootfs, volume, network, etc.
+	RootFs      string `json:"rootfs"`
+	Volume      string `json:"volume"`
+	//TODO: network, etc.
 }
 
 const (
@@ -32,14 +34,16 @@ const (
 	ConfigName          = "config.json"
 )
 
-func RecordContainerInfo(pid int, id, name string, cmdArr []string) error {
+func RecordContainerInfo(pid int, id, name, rootfs, volume string, cmdArr []string) error {
 	containerInfo := &ContainerInfo{
 		Pid:         fmt.Sprintf("%d", pid),
 		Id:          id,
 		Name:        name,
+		Status:      STATUS_RUNNING,
 		Command:     strings.Join(cmdArr, " "),
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
-		Status:      STATUS_RUNNING,
+		RootFs:      rootfs,
+		Volume:      volume,
 	}
 
 	jsonBytes, err := json.Marshal(containerInfo)

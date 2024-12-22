@@ -74,7 +74,7 @@ func run(args []string) {
 	}
 
 	// ---- record container info ----
-	err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerID, runConf.ContainerName, args)
+	err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerID, runConf.ContainerName, runConf.RootFs, runConf.Volume, args)
 	if err != nil {
 		fmt.Printf("Error recording container info - %s\n", err)
 	}
