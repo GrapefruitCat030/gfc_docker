@@ -113,3 +113,12 @@ func GetContainerPid(name string) string {
 	}
 	return containerInfo.Pid
 }
+
+func GetContainerEnv(pid string) ([]string, error) {
+	filePath := fmt.Sprintf("/proc/%s/environ", pid)
+	bytes, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(string(bytes), "\u0000"), nil
+}

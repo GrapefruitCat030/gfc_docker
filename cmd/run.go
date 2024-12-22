@@ -245,7 +245,7 @@ func execCommand(command []string) {
 		fmt.Printf("Error finding shell - %s\n", err)
 		os.Exit(1)
 	}
-	env := []string{"PS1=-[gfc_docker]- # "}
+	env := append(os.Environ(), "PS1=[gfc_container] # ")
 	if err := syscall.Exec(cmdPath, command, env); err != nil {
 		fmt.Printf("Error executing shell - %s\n", err)
 		os.Exit(1)

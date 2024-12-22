@@ -47,6 +47,12 @@ func execute(container_name string, command []string) {
 
 	os.Setenv(ENV_EXEC_PID, pid)
 	os.Setenv(ENV_EXEC_CMD, cmdStr)
+	envs, err := gfc_runinfo.GetContainerEnv(pid)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		return
+	}
+	parentProc.Env = append(os.Environ(), envs...)
 
 	if err := parentProc.Run(); err != nil {
 		fmt.Println("Error: ", err)
