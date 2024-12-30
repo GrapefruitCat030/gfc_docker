@@ -11,6 +11,7 @@ import (
 
 	gfc_cgroup "github.com/GrapefruitCat030/gfc_docker/pkg/cgroup"
 	gfc_fs "github.com/GrapefruitCat030/gfc_docker/pkg/fs"
+	gfc_net "github.com/GrapefruitCat030/gfc_docker/pkg/net"
 	gfc_pipe "github.com/GrapefruitCat030/gfc_docker/pkg/pipe"
 	gfc_runinfo "github.com/GrapefruitCat030/gfc_docker/pkg/runinfo"
 	gfc_subsys "github.com/GrapefruitCat030/gfc_docker/pkg/subsystem"
@@ -22,6 +23,7 @@ import (
 )
 
 func init() {
+	rootCmd.AddCommand(runCmd)
 	runCmd.Flags().StringVarP(&runConf.ContainerName, "name", "n", "", "container name")
 	runCmd.Flags().StringVarP(&runConf.RootFs, "rootfs", "r", "/root/project/gfc_docker/filesystem", "root filesystem path")
 	runCmd.Flags().StringVarP(&runConf.MemLimit, "memory", "m", "20m", "memory limit")
@@ -29,7 +31,8 @@ func init() {
 	runCmd.Flags().BoolVarP(&runConf.Detach, "detach", "d", false, "detach")
 	runCmd.Flags().StringVarP(&runConf.Volume, "volume", "v", "", "mount volume, format: <host_path>:<container_path>")
 	runCmd.Flags().StringArrayVarP(&runConf.Env, "env", "e", []string{}, "environment variables")
-	rootCmd.AddCommand(runCmd)
+	runCmd.Flags().StringVarP(&runConf.Net, "net", "n", "", "specify network")
+	runCmd.Flags().StringArrayVarP(&runConf.PortMapping, "port", "p", []string{}, "port mapping, format: <host_port>:<container_port>")
 
 	runConf.UFSer = &gfc_ufs.OverlayFS{}
 	runConf.ContainerID = gfc_runinfo.GenerateRandomID(10)
@@ -49,6 +52,8 @@ type RunConfig struct {
 	UFSer         gfc_ufs.UnionFSer
 	Volume        string
 	Env           []string
+	Net           string
+	PortMapping   []string
 }
 
 var runConf RunConfig
@@ -76,14 +81,22 @@ func run(args []string) {
 	}
 
 	// ---- record container info ----
-	err := gfc_runinfo.RecordContainerInfo(parentProc.Process.Pid, runConf.ContainerID, runConf.ContainerName, runConf.RootFs, runConf.Volume, args)
+	containerInfo, err := gfc_runinfo.RecordContainerInfo(
+		parentProc.Process.Pid,
+		runConf.ContainerID,
+		runConf.ContainerName,
+		runConf.RootFs,
+		runConf.Volume,
+		runConf.PortMapping,
+		args,
+	)
 	if err != nil {
 		fmt.Printf("Error recording container info - %s\n", err)
 	}
 	fmt.Println("Container name: ", runConf.ContainerName)
 
 	// ---- run netsetgo using default setting ----
-	// gfc_net.SetNetwork(cmd.Process.Pid)
+	gfc_net.CreateEndpoint(runConf.Net, containerInfo)
 
 	// ---- set cgroup & subsys ----
 	// ATTENTION: alpine does not support cgroup v2, need to comment out the following code
@@ -187,12 +200,12 @@ func runDetails() {
 		fmt.Printf("Error assigning hostname - %s\n", err)
 		os.Exit(1)
 	}
+	// 4. setup new network
 	// if err := gfc_net.WaitNetwork(); err != nil {
 	// 	fmt.Printf("Error waiting for network - %s\n", err)
 	// 	os.Exit(1)
 	// }
-
-	// 4. execute command
+	// 5. execute command
 	execCommand(cmdArr)
 }
 

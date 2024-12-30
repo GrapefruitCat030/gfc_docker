@@ -20,7 +20,8 @@ type ContainerInfo struct {
 	CreatedTime string `json:"created_time"`
 	RootFs      string `json:"rootfs"`
 	Volume      string `json:"volume"`
-	//TODO: network, etc.
+	//TODO: network, portmapping, etc.
+	PortMapping []string `json:"portmapping"`
 }
 
 const (
@@ -34,7 +35,7 @@ const (
 	ConfigName          = "config.json"
 )
 
-func RecordContainerInfo(pid int, id, name, rootfs, volume string, cmdArr []string) error {
+func RecordContainerInfo(pid int, id, name, rootfs, volume string, portmapping []string, cmdArr []string) (*ContainerInfo, error) {
 	containerInfo := &ContainerInfo{
 		Pid:         fmt.Sprintf("%d", pid),
 		Id:          id,
@@ -44,28 +45,29 @@ func RecordContainerInfo(pid int, id, name, rootfs, volume string, cmdArr []stri
 		CreatedTime: time.Now().Format("2006-01-02 15:04:05"),
 		RootFs:      rootfs,
 		Volume:      volume,
+		PortMapping: portmapping,
 	}
 
 	jsonBytes, err := json.Marshal(containerInfo)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	jsonStr := string(jsonBytes)
 
 	infoLocation := filepath.Join(DefaultInfoLocation, containerInfo.Name)
 	if err := os.MkdirAll(infoLocation, 0777); err != nil {
-		return err
+		return nil, err
 	}
 	fileName := filepath.Join(infoLocation, ConfigName)
 	f, err := os.Create(fileName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 	if _, err := f.WriteString(jsonStr); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return containerInfo, nil
 }
 
 func DeleteContainerInfo(containerName string) error {

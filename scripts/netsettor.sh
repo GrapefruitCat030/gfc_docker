@@ -51,9 +51,8 @@ ip netns exec $NETNS ip addr add $veth_container_ip dev $veth_container
 
 ip netns exec $NETNS ip link set $veth_container up
 
-
+# 配置容器端网关
 ip netns exec $NETNS ip route add default via $veth_host_ip dev $veth_container
-
 
 # 隐藏容器进程网络命名空间（还原默认设置）
 rm -rf /var/run/netns/$NETNS
