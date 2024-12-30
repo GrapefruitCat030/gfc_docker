@@ -96,7 +96,9 @@ func run(args []string) {
 	fmt.Println("Container name: ", runConf.ContainerName)
 
 	// ---- run netsetgo using default setting ----
-	gfc_net.CreateEndpoint(runConf.Net, containerInfo)
+	if err = gfc_net.ConnectEndpoint(runConf.Net, containerInfo); err != nil {
+		fmt.Printf("Error connecting endpoint - %s\n", err)
+	}
 
 	// ---- set cgroup & subsys ----
 	// ATTENTION: alpine does not support cgroup v2, need to comment out the following code
@@ -110,7 +112,6 @@ func run(args []string) {
 	// Keep this behavior at the end to synchronize the parent and child processes
 	if _, err := pw.WriteString(strings.Join(args, " ")); err != nil {
 		fmt.Printf("Error writing to pipe - %s\n", err)
-		os.Exit(1)
 	}
 	pw.Close()
 

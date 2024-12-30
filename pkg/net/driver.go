@@ -31,7 +31,6 @@ func (bd *BridgeDriver) initDriver(nw *Network) error {
 	if _, err := net.InterfaceByName(nw.Name); err == nil || !strings.Contains(err.Error(), "no such network interface") {
 		return err
 	}
-
 	brg := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
 			Name: nw.Name,
@@ -96,6 +95,20 @@ func (bd *BridgeDriver) Delete(net *Network) error {
 }
 
 func (bd *BridgeDriver) Connect(net *Network, endpoint *Endpoint) error {
+	brg, err := netlink.LinkByName(net.Name)
+	if err != nil {
+		return err
+	}
+	veth_host, err := netlink.LinkByName(endpoint.Device.Name)
+	if err != nil {
+		return err
+	}
+	if err := netlink.LinkSetMaster(veth_host, brg.(*netlink.Bridge)); err != nil {
+		return err
+	}
+	if err := netlink.LinkSetUp(veth_host); err != nil {
+		return err
+	}
 	return nil
 }
 

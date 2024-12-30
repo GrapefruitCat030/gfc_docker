@@ -11,10 +11,9 @@ import (
 )
 
 const (
-	defaultNetPath = "/var/run/gfc_docker/network/"
-
+	defaultNetPath      = "/var/run/gfc_docker/network/"
 	defaultNetworkPath  = "/var/run/gfc_docker/network/networks/"
-	defaultEndpointDir  = "endpoints"
+	defaultEndpointPath = "/var/run/gfc_docker/network/endpoints/"
 	defaultIPAMFilePath = "/var/run/gfc_docker/network/ipam.json"
 )
 
@@ -36,7 +35,7 @@ func CreateNetwork(driver, subnet, name string) error {
 	return nw.dump(defaultNetworkPath)
 }
 
-func CreateEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) error {
+func ConnectEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) error {
 	nw := &Network{Name: netname}
 	nw.load(defaultNetworkPath)
 	epIP, err := GlobalIPAM().AllocateIP(nw.IpRange)
@@ -44,15 +43,21 @@ func CreateEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) error {
 		return err
 	}
 	ep := &Endpoint{
-		ID:          fmt.Sprintf("%s-%s", nw.Name, cinfo.Id),
+		ID:          fmt.Sprintf("%s-%s", cinfo.Id, nw.Name),
 		IPAddr:      epIP,
 		Network:     nw,
 		PortMapping: cinfo.PortMapping,
 	}
+	if err := ep.initEndpoint(); err != nil {
+		return err
+	}
 	if err := globalDrivers[nw.Driver].Connect(nw, ep); err != nil {
 		return err
 	}
-	if err := configEndpoint(ep, cinfo); err != nil {
+	if err := ep.configRoute(cinfo); err != nil {
+		return err
+	}
+	if err := ep.configPortMapping(); err != nil {
 		return err
 	}
 	return nil
