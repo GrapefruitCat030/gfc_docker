@@ -96,7 +96,8 @@ func run(args []string) {
 	fmt.Println("Container name: ", runConf.ContainerName)
 
 	// ---- run netsetgo using default setting ----
-	if err = gfc_net.ConnectEndpoint(runConf.Net, containerInfo); err != nil {
+	netEndpoint, err := gfc_net.ConnectEndpoint(runConf.Net, containerInfo)
+	if err != nil {
 		fmt.Printf("Error connecting endpoint - %s\n", err)
 	}
 
@@ -118,6 +119,10 @@ func run(args []string) {
 	if runConf.Tty {
 		if err := parentProc.Wait(); err != nil {
 			fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
+			os.Exit(1)
+		}
+		if err := gfc_net.DisconnectEndpoint(netEndpoint); err != nil {
+			fmt.Printf("Error disconnecting endpoint - %s\n", err)
 			os.Exit(1)
 		}
 		if err := gfc_runinfo.DeleteContainerInfo(runConf.ContainerName); err != nil { // TODO: if detach container over?

@@ -114,3 +114,23 @@ func (ep *Endpoint) configPortMapping() error {
 	}
 	return nil
 }
+
+func (ep *Endpoint) releasePortMapping() error {
+	for _, pm := range ep.PortMapping {
+		parts := strings.Split(pm, ":")
+		if len(parts) != 2 {
+			fmt.Printf("port mapping format error: %s\n", pm)
+			continue
+		}
+		hostPort := parts[0]
+		containerPort := parts[1]
+		iptablesCmd := fmt.Sprintf("-t nat -D PREROUTING -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s", hostPort, ep.IPAddr.String(), containerPort)
+		cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			fmt.Printf("failed to exec iptables: %v\noutput: %s\n", err, output)
+			continue
+		}
+	}
+	return nil
+}

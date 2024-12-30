@@ -35,12 +35,12 @@ func CreateNetwork(driver, subnet, name string) error {
 	return nw.dump(defaultNetworkPath)
 }
 
-func ConnectEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) error {
+func ConnectEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) (*Endpoint, error) {
 	nw := &Network{Name: netname}
 	nw.load(defaultNetworkPath)
 	epIP, err := GlobalIPAM().AllocateIP(nw.IpRange)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ep := &Endpoint{
 		ID:          fmt.Sprintf("%s-%s", cinfo.Id, nw.Name),
@@ -49,18 +49,18 @@ func ConnectEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) error {
 		PortMapping: cinfo.PortMapping,
 	}
 	if err := ep.initEndpoint(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := globalDrivers[nw.Driver].Connect(nw, ep); err != nil {
-		return err
+		return nil, err
 	}
 	if err := ep.configRoute(cinfo); err != nil {
-		return err
+		return nil, err
 	}
 	if err := ep.configPortMapping(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return ep, nil
 }
 
 func ListNetworks() error {
@@ -108,4 +108,17 @@ func RemoveNetwork(netname string) error {
 	}
 	// 3.Remove network
 	return nw.remove(defaultNetworkPath)
+}
+
+func DisconnectEndpoint(ep *Endpoint) error {
+	// 1. port mapping release
+	if err := ep.releasePortMapping(); err != nil {
+		return err
+	}
+	// 2. driver release
+	if err := globalDrivers[ep.Network.Driver].Disconnect(ep.Network, ep); err != nil {
+		return err
+	}
+	// 3. release ip
+	return GlobalIPAM().ReleaseIP(ep.Network.IpRange, ep.IPAddr)
 }
