@@ -8,6 +8,9 @@ import (
 func init() {
 	rootCmd.AddCommand(networkCmd)
 	networkCmd.AddCommand(networkCreateCmd)
+	networkCmd.AddCommand(networkListCmd)
+	networkCmd.AddCommand(networkRemoveCmd)
+
 	networkCreateCmd.Flags().StringVarP(&networkConfig.Subnet, "subnet", "s", "", "subnet cidr")
 	networkCreateCmd.Flags().StringVarP(&networkConfig.Driver, "driver", "d", "", "network driver")
 	networkCreateCmd.MarkFlagRequired("subnet")
@@ -40,7 +43,9 @@ var networkListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List networks",
 	Run: func(cmd *cobra.Command, args []string) {
-		gfc_net.ListNetworks()
+		if err := gfc_net.ListNetworks(); err != nil {
+			panic(err)
+		}
 	},
 }
 

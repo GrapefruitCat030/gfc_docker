@@ -79,6 +79,7 @@ func (nw *Network) dump(path string) error {
 }
 
 func (nw *Network) load(path string) error {
+	// TODO: cancel the path parameter, use the default path
 	fp := filepath.Join(path, nw.Name)
 	f, err := os.Open(fp)
 	if err != nil {
@@ -95,4 +96,9 @@ func (nw *Network) load(path string) error {
 		return err
 	}
 	return nil
+}
+
+func (nw *Network) remove(path string) error {
+	fp := filepath.Join(path, nw.Name)
+	return os.Remove(fp)
 }

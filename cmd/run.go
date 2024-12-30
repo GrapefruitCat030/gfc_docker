@@ -31,7 +31,7 @@ func init() {
 	runCmd.Flags().BoolVarP(&runConf.Detach, "detach", "d", false, "detach")
 	runCmd.Flags().StringVarP(&runConf.Volume, "volume", "v", "", "mount volume, format: <host_path>:<container_path>")
 	runCmd.Flags().StringArrayVarP(&runConf.Env, "env", "e", []string{}, "environment variables")
-	runCmd.Flags().StringVarP(&runConf.Net, "net", "n", "", "specify network")
+	runCmd.Flags().StringVarP(&runConf.Net, "network", "w", "", "specify network")
 	runCmd.Flags().StringArrayVarP(&runConf.PortMapping, "port", "p", []string{}, "port mapping, format: <host_port>:<container_port>")
 
 	runConf.UFSer = &gfc_ufs.OverlayFS{}

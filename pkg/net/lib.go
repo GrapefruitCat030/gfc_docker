@@ -3,6 +3,9 @@ package net
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"text/tabwriter"
 
 	gfc_runinfo "github.com/GrapefruitCat030/gfc_docker/pkg/runinfo"
 )
@@ -10,7 +13,7 @@ import (
 const (
 	defaultNetPath = "/var/run/gfc_docker/network/"
 
-	defaultNetworkPath  = "/var/run/gfc_docker/network/networks"
+	defaultNetworkPath  = "/var/run/gfc_docker/network/networks/"
 	defaultEndpointDir  = "endpoints"
 	defaultIPAMFilePath = "/var/run/gfc_docker/network/ipam.json"
 )
@@ -55,15 +58,49 @@ func CreateEndpoint(netname string, cinfo *gfc_runinfo.ContainerInfo) error {
 	return nil
 }
 
-func ListNetworks() {
-	for _, nw := range globalDrivers {
-		fmt.Println(nw)
+func ListNetworks() error {
+	networks := make([]*Network, 0)
+	err := filepath.Walk(defaultNetworkPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		nw := &Network{Name: info.Name()}
+		if err := nw.load(defaultNetworkPath); err != nil {
+			return err
+		}
+		networks = append(networks, nw)
+		return nil
+	})
+	if err != nil {
+		return err
 	}
+	w := tabwriter.NewWriter(os.Stdout, 12, 1, 3, ' ', 0)
+	fmt.Fprintln(w, "Name\tDriver\tSubnet\tGateway")
+	for _, nw := range networks {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", nw.Name, nw.Driver, nw.IpRange.String(), nw.GatewayIP.String())
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	return nil
 }
 
-func RemoveNetwork(name string) error {
+func RemoveNetwork(netname string) error {
+	nw := &Network{Name: netname}
+	if err := nw.load(defaultNetworkPath); err != nil {
+		return err
+	}
 	// 1.IPAM release
+	if err := GlobalIPAM().DeleteSubnet(nw.IpRange); err != nil {
+		return err
+	}
 	// 2.Driver release
+	if err := globalDrivers[nw.Driver].Delete(nw); err != nil {
+		return err
+	}
 	// 3.Remove network
-	return nil
+	return nw.remove(defaultNetworkPath)
 }

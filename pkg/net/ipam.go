@@ -58,6 +58,14 @@ func (m *bitmap) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+var globalIPAM = &IPAM{
+	Subnets: make(map[string]*bitmap),
+}
+
+func GlobalIPAM() *IPAM {
+	return globalIPAM
+}
+
 func (i *IPAM) AllocateIP(subnet net.IPNet) (net.IP, error) {
 	i.Lock()
 	defer i.Unlock()
@@ -90,7 +98,7 @@ func (i *IPAM) AllocateIP(subnet net.IPNet) (net.IP, error) {
 			ip := make(net.IP, len(subnet.IP))
 			copy(ip, subnet.IP)
 			for j := 0; j < 4; j++ {
-				ip[j] |= byte(i >> (len(subnet.IP) - 1 - j) * 8) // 分段赋值
+				ip[j] |= byte(i >> ((len(ip) - 1 - j) * 8)) // 分段赋值
 			}
 			// save to file
 			if err := saveIPAM(); err != nil {
@@ -110,27 +118,44 @@ func (i *IPAM) ReleaseIP(subnet net.IPNet, ipaddr net.IP) error {
 	if !ok {
 		return fmt.Errorf("unknown subnet %s", key)
 	}
+
+	fmt.Printf("subnet: %v\n", subnet)
+	fmt.Printf("ipaddr: %v\n", ipaddr)
+	fmt.Printf("befor bm: %v\n", bm)
+
 	// 计算IP地址在位图中的索引
 	ipInt := ipToInt(ipaddr)
 	subnetInt := ipToInt(subnet.IP)
 	idx := int(ipInt - subnetInt)
+
+	fmt.Printf("ipInt: %v\n", ipInt)
+	fmt.Printf("subnetInt: %v\n", subnetInt)
+	fmt.Printf("idx: %v\n", idx)
+
 	if idx < 0 || idx >= len(bm.Bitmap)*8 {
 		return fmt.Errorf("IP %s is out of range", ipaddr)
 	}
 	// 清除位图中对应的位
 	byteIdx := idx / 8
 	bitIdx := idx % 8
-	bm.Bitmap[byteIdx] &^= 1 << uint(bitIdx)
+	flag := byte(1 << uint(7-bitIdx))
+	bm.Bitmap[byteIdx] &^= flag
+
+	fmt.Printf("after bm: %v\n", bm)
+
 	// save to file
 	return saveIPAM()
 }
 
-var globalIPAM = &IPAM{
-	Subnets: make(map[string]*bitmap),
-}
-
-func GlobalIPAM() *IPAM {
-	return globalIPAM
+func (i *IPAM) DeleteSubnet(subnet net.IPNet) error {
+	i.Lock()
+	defer i.Unlock()
+	key := subnet.String()
+	if _, ok := i.Subnets[key]; !ok {
+		return fmt.Errorf("unknown subnet %s", key)
+	}
+	delete(i.Subnets, key)
+	return saveIPAM()
 }
 
 func saveIPAM() error {
