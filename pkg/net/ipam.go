@@ -6,10 +6,21 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"sync"
+
+	gfc_fs "github.com/GrapefruitCat030/gfc_docker/pkg/fs"
 )
 
 func init() {
+	lock, err := gfc_fs.NewFileLocker(defaultIPAMFilePath)
+	if err != nil {
+		fmt.Println("Error creating file locker:", err)
+	}
+	globalIPAM = &IPAM{
+		Subnets: make(map[string]*bitmap),
+		flocker: lock,
+	}
+	globalIPAM.flocker.Lock()
+	defer globalIPAM.flocker.Unlock()
 	if err := loadIPAM(); err != nil {
 		fmt.Println("Error loading IPAM:", err)
 	}
@@ -20,8 +31,7 @@ type IPAM struct {
 	// 子网 -> IP分配状态的映射
 	// key = 子网 string, value = 位图
 	Subnets map[string]*bitmap `json:"subnets"`
-	// 文件锁，确保并发安全
-	sync.RWMutex
+	flocker *gfc_fs.FileLocker
 }
 
 type bitmap struct {
@@ -58,18 +68,18 @@ func (m *bitmap) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-var globalIPAM = &IPAM{
-	Subnets: make(map[string]*bitmap),
-}
+var globalIPAM *IPAM
 
 func GlobalIPAM() *IPAM {
 	return globalIPAM
 }
 
 func (i *IPAM) AllocateIP(subnet net.IPNet) (net.IP, error) {
-	i.Lock()
-	defer i.Unlock()
-
+	i.flocker.Lock()
+	defer i.flocker.Unlock()
+	if err := loadIPAM(); err != nil {
+		return nil, err
+	}
 	key := subnet.String()
 	// 做一个深拷贝，避免后续修改
 	_, newSubnet, err := net.ParseCIDR(subnet.String())
@@ -111,8 +121,11 @@ func (i *IPAM) AllocateIP(subnet net.IPNet) (net.IP, error) {
 }
 
 func (i *IPAM) ReleaseIP(subnet net.IPNet, ipaddr net.IP) error {
-	i.Lock()
-	defer i.Unlock()
+	i.flocker.Lock()
+	defer i.flocker.Unlock()
+	if err := loadIPAM(); err != nil {
+		return err
+	}
 	key := subnet.String()
 	bm, ok := i.Subnets[key]
 	if !ok {
@@ -148,8 +161,11 @@ func (i *IPAM) ReleaseIP(subnet net.IPNet, ipaddr net.IP) error {
 }
 
 func (i *IPAM) DeleteSubnet(subnet net.IPNet) error {
-	i.Lock()
-	defer i.Unlock()
+	i.flocker.Lock()
+	defer i.flocker.Unlock()
+	if err := loadIPAM(); err != nil {
+		return err
+	}
 	key := subnet.String()
 	if _, ok := i.Subnets[key]; !ok {
 		return fmt.Errorf("unknown subnet %s", key)
