@@ -119,19 +119,15 @@ func run(args []string) {
 	if runConf.Tty {
 		if err := parentProc.Wait(); err != nil {
 			fmt.Printf("Error waiting for the reexec.Command - %s\n", err)
-			os.Exit(1)
 		}
 		if err := gfc_net.DisconnectEndpoint(netEndpoint); err != nil {
 			fmt.Printf("Error disconnecting endpoint - %s\n", err)
-			os.Exit(1)
 		}
 		if err := gfc_runinfo.DeleteContainerInfo(runConf.ContainerName); err != nil { // TODO: if detach container over?
 			fmt.Printf("Error deleting container info - %s\n", err)
-			os.Exit(1)
 		}
 		if err := gfc_ufs.DeleteWorkSpace(runConf.RootFs, runConf.Volume, runConf.UFSer); err != nil {
 			fmt.Printf("Error deleting union filesystem - %s\n", err)
-			os.Exit(1)
 		}
 	}
 }
