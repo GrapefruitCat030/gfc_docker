@@ -131,20 +131,10 @@ func (i *IPAM) ReleaseIP(subnet net.IPNet, ipaddr net.IP) error {
 	if !ok {
 		return fmt.Errorf("unknown subnet %s", key)
 	}
-
-	fmt.Printf("subnet: %v\n", subnet)
-	fmt.Printf("ipaddr: %v\n", ipaddr)
-	fmt.Printf("befor bm: %v\n", bm)
-
 	// 计算IP地址在位图中的索引
 	ipInt := ipToInt(ipaddr)
 	subnetInt := ipToInt(subnet.IP)
 	idx := int(ipInt - subnetInt)
-
-	fmt.Printf("ipInt: %v\n", ipInt)
-	fmt.Printf("subnetInt: %v\n", subnetInt)
-	fmt.Printf("idx: %v\n", idx)
-
 	if idx < 0 || idx >= len(bm.Bitmap)*8 {
 		return fmt.Errorf("IP %s is out of range", ipaddr)
 	}
@@ -153,9 +143,6 @@ func (i *IPAM) ReleaseIP(subnet net.IPNet, ipaddr net.IP) error {
 	bitIdx := idx % 8
 	flag := byte(1 << uint(7-bitIdx))
 	bm.Bitmap[byteIdx] &^= flag
-
-	fmt.Printf("after bm: %v\n", bm)
-
 	// save to file
 	return saveIPAM()
 }

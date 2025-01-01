@@ -104,7 +104,7 @@ func (ep *Endpoint) configPortMapping() error {
 		}
 		hostPort := parts[0]
 		containerPort := parts[1]
-		iptablesCmd := fmt.Sprintf("-t nat -A PREROUTING -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s", hostPort, ep.IPAddr.String(), containerPort)
+		iptablesCmd := fmt.Sprintf("-t nat -A PREROUTING ! -i %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s", ep.Network.Name, hostPort, ep.IPAddr.String(), containerPort)
 		cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
@@ -124,7 +124,7 @@ func (ep *Endpoint) releasePortMapping() error {
 		}
 		hostPort := parts[0]
 		containerPort := parts[1]
-		iptablesCmd := fmt.Sprintf("-t nat -D PREROUTING -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s", hostPort, ep.IPAddr.String(), containerPort)
+		iptablesCmd := fmt.Sprintf("-t nat -D PREROUTING ! -i %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s", ep.Network.Name, hostPort, ep.IPAddr.String(), containerPort)
 		cmd := exec.Command("iptables", strings.Split(iptablesCmd, " ")...)
 		output, err := cmd.CombinedOutput()
 		if err != nil {
